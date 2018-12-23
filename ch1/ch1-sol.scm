@@ -521,3 +521,268 @@
 	((= (expmod (+ 1 (random (- n 1))) (- n 1) n) 1)
 	 (miller-rabin n (- times 1)))
 	(else #f)))
+
+;; Exercise 1.29
+
+(define (simpsons-rule f a b n)
+  (define (term k)
+    (* (cond ((or (= k 0) (= k n)) 1)
+	     ((even? k) 2)
+	     (else 4))
+       (f (+ a (* k (/ (- b a) n))))))
+  (* (sum term 0 inc n)
+     (/ (/ (- b a) n) 3)))
+
+;; Exercise 1.30
+
+(define (sum term a next b)
+  (define (iter a result)
+    (if (> a b)
+	result
+	(iter (+ a 1)
+	      (+ (term a) result))))
+  (iter a 0))
+
+;; Exercise 1.31
+
+;; a.
+
+(define (product term a next b)
+  (if (> a b)
+      1
+      (* (term a)
+	 (product term (next a) next b))))
+
+(define (factorial n)
+  (product identity 1 inc n))
+
+(define (pi-product n)
+  (define (numerator-term k)
+    (if (even? k)
+        (+ k 2)
+	(+ k 1)))
+  (define (denominator-term k)
+    (if (even? k)
+	(+ k 1)
+	(+ k 2)))
+  (* 4
+     (/ (product numerator-term 1 inc n)
+	(product denominator-term 1 inc n))))
+
+;; b.
+
+(define (product term a next b)
+  (define (iter a result)
+    (if (> a b)
+	result
+	(iter (next a)
+	      (* (term a) result))))
+  (iter a 1))
+
+;; Exercise 1.32
+
+;; a.
+
+(define (accumulate combiner null-value term a next b)
+  (if (> a b)
+      null-value
+      (combiner (term a)
+		(accumulate combiner null-value term (next a) next b))))
+
+(define (sum term a next b)
+  (accumulate + 0 term a next b))
+
+(define (product term a next b)
+  (accumulate * 1 term a next b))
+
+;; b.
+
+(define (accumulate combiner null-value term a next b)
+  (define (iter a result)
+    (if (> a b)
+	result
+	(iter (next a)
+	      (combiner (term a) result))))
+  (iter a null-value))
+
+;; Exercise 1.33
+
+(define (filtered-accumulate filterer? combiner null-value term a next b)
+  (cond ((> a b) null-value)
+	((filterer? a)
+	 (combiner (term a)
+		   (filtered-accumulate filterer? combiner null-value term (next a) next b)))
+	(else (filtered-accumulate filterer? combiner null-value term (next a) next b))))
+
+(define (sum-square-primes a b)
+  (filtered-accumulate prime? + 0 identity a inc b))
+
+(define (product-relatively-prime n)
+  (define (relatively-prime? a)
+    (= (gcd a n) 1))
+  (filtered-accumulate relatively-prime? * 1 identity 1 inc (- n 1)))
+
+;; Exercise 1.34
+
+;; Using the substitution semantics, (f f) returns the same value as (f 2). Using the substitution semantics again, we will instead evaluate (2 2). Since 2 is a number but not a procedure, it cannot be applied to 2, so an error is raised.
+
+;; Exercise 1.35
+
+;; Note that 1 + 1 / phi = 1 + 1 / ((1 + sqrt(5)) / 2) = 1 + 2 / (1 + sqrt(5)) = (3 + sqrt(5)) / (1 + sqrt(5)) = (3 + sqrt(5))(1 - sqrt(5)) / (1 + sqrt(5))(1 - sqrt(5)) = (-2 - 2 sqrt(5)) / (1 - 5) = (-2 - 2 sqrt(5)) / (-4) = (1 + sqrt(5)) / 2 = phi. Hence, phi is a fixed point of the transformation x -> 1 + 1 / x.
+
+(define phi
+  (fixed-point (lambda (x) (+ 1 (/ 1 x)))
+	       1.0))
+
+;; Exercise 1.36
+
+(define (fixed-point-print f first-guess)
+  (define tolerance 0.00001)
+  (define (closed-enough? v1 v2)
+    (< (abs (- v1 v2)) tolerance))
+  (define (try guess)
+    (display guess)
+    (newline)
+    (let ((next (f guess)))
+      (if (closed-enough? guess next)
+	  next
+	  (try next))))
+  (try first-guess))
+
+(define (fixed-point-print-damping f first-guess)
+  (define tolerance 0.00001)
+  (define (closed-enough? v1 v2)
+    (< (abs (- v1 v2)) tolerance))
+  (define (try guess)
+    (display guess)
+    (newline)
+    (let ((next (average guess (f guess))))
+      (if (closed-enough? guess next)
+	  next
+	  (try next))))
+  (try first-guess))
+
+;; From the outputs of the two versions of fixed-point, we can see that the version with damping requires much less steps than the version without damping.
+
+;; Exercise 1.37
+
+;; a.
+
+(define (cont-frac n d k)
+  (define (recurse n d i)
+    (if (= i k)
+	(/ (n k) (d i))
+	(/ (n i)
+	   (+ (d i)
+	      (recurse n d (+ i 1))))))
+  (recurse n d 1))
+
+;; One must make k equal to 11 in order to get an approximation that is accurate to 4 decimal places.
+
+;; b.
+
+(define (cont-frac n d k)
+  (define (iter i result)
+    (if (= i 0)
+	result
+	(iter (- i 1)
+	      (/ (n i)
+		 (+ (d i) result)))))
+  (iter k 0))
+
+;; Exercise 1.38
+
+(define e
+  (+ 2 (cont-frac (lambda (i) 1.0)
+		  (lambda (i)
+		    (let ((mod-3 (remainder i 3)))
+		      (cond ((= mod-3 0) 1.0)
+			    ((= mod-3 1) 1.0)
+			    ((= mod-3 2) (* 2 (/ (+ i 1) 3))))))
+		  1000)))
+
+;; Exercise 1.39
+
+(define (tan-cf x k)
+  (cont-frac (lambda (i)
+	       (if (= i 1)
+		   x
+		   (- (* x x))))
+	     (lambda (i) (- (* 2 i) 1))
+	     k))
+
+;; Exercise 1.40
+
+(define (cubic a b c)
+  (lambda (x)
+    (+ (* x x x)
+       (* a x x)
+       (* b x)
+       c)))
+
+;; Exercise 1.41
+
+(define (double f)
+  (lambda (x)
+    (f (f x))))
+
+;; The value returned by (((double (double double)) inc) 5) is 21.
+
+;; Exercise 1.42
+
+(define (compose f g)
+  (lambda (x)
+    (f (g x))))
+
+;; Exercise 1.43
+
+(define (repeated f n)
+  (if (= n 1)
+      f
+      (compose f (repeated f (- n 1)))))
+
+;; Exercise 1.44
+
+(define (smooth f)
+  (define dx 0.001)
+  (lambda (x)
+    (/ (+ (f (- x dx))
+	  (f x)
+	  (f (+ x dx)))
+       3)))
+
+(define (n-fold-smooth f n)
+  ((repeated smooth n) f))
+
+;; Exercise 1.45
+
+;; floor(log(n)) average damps are required to compute the n-th roots as a fixed-point search based upon repeated average damping of y -> x / y^(n - 1).
+
+(define (nth-root x n)
+  (fixed-point ((repeated average-damp (floor (log n 2)))
+		(lambda (y) (/ x (expt y (- n 1)))))
+	       1.0))
+
+;; Exercise 1.46
+
+(define (iterative-improve good-enough? improve)
+  (define (try guess)
+    (if (good-enough? guess)
+	guess
+	(try (improve guess))))
+  try)
+
+(define (sqrt x)
+  (define tolerance 0.00001)
+  ((iterative-improve (lambda (guess)
+			(< (abs (- (square guess) x)) tolerance))
+		      (lambda (guess)
+			(average guess (/ x guess))))
+   1.0))
+
+(define (fixed-point f first-guess)
+  (define tolerance 0.00001)
+  ((iterative-improve (lambda (guess)
+			(< (abs (- guess (f guess))) tolerance))
+		      f)
+   first-guess))

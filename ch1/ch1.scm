@@ -135,3 +135,105 @@
   (cond ((= times 0) #t)
 	((fermat-test n) (fast-prime? n (- times 1)))
 	(else #f)))
+
+;; Summation
+
+(define (sum term a next b)
+  (if (> a b)
+      0
+      (+ (term a)
+	 (sum term (next a) next b))))
+
+(define (inc n) (+ n 1))
+
+(define (cube x) (* x x x))
+(define (sum-cube a b)
+  (sum cube a inc b))
+
+(define (identity x) x)
+(define (sum-integers a b)
+  (sum identity a inc b))
+
+(define (pi-sum a b)
+  (sum (lambda (x) (/ 1.0 (* x (+ x 2))))
+       a
+       (lambda (x) (+ x 4))
+       b))
+
+(define (integral f a b dx)
+  (* (sum f
+	  (+ a (/ dx 2))
+	  (lambda (x) (+ x dx))
+	  b)
+     dx))
+
+;; Half-interval method to find roots of an equation
+
+(define (search f neg-point pos-point)
+  (define (close-enough? x y)
+    (< (abs (- x y)) 0.001))
+  (let ((midpoint (average neg-point pos-point)))
+    (if (close-enough? neg-point pos-point)
+	midpoint
+	(let ((test-value (f midpoint)))
+	  (cond ((positive? test-value)
+		 (search f neg-point midpoint))
+		((negative? test-value)
+		 (search f midpoint pos-point))
+		(else midpoint))))))
+
+(define (half-interval-method f a b)
+  (let ((a-value (f a))
+	(b-value (f b)))
+    (cond ((and (negative? a-value) (positive? b-value))
+	   (search f a b))
+	  ((and (negative? b-value) (positive? a-value))
+	   (search f b a))
+	  (else
+	   (error "Values are not of opposite sign" a b)))))
+
+;; Finding fixed points of functions
+
+(define (fixed-point f first-guess)
+  (define tolerance 0.00001)
+  (define (closed-enough? v1 v2)
+    (< (abs (- v1 v2))
+       tolerance))
+  (define (try guess)
+    (let ((next (f guess)))
+      (if (closed-enough? guess next)
+	  next
+	  (try next))))
+  (try first-guess))
+
+(define (average-damp f)
+  (lambda (x) (average x (f x))))
+
+(define (cube-root x)
+  (fixed-point (average-damp (lambda (y) (/ x (square y))))
+	       1.0))
+
+;; Newton's method, generally
+
+(define (deriv g)
+  (define dx 0.00001)
+  (lambda (x) (/ (- (g (+ x dx)) (g x)) dx)))
+
+(define (newton-transform g)
+  (lambda (x) (- x (/ (g x) ((deriv g) x)))))
+
+(define (newtons-method g guess)
+  (fixed-point (newton-transform g) guess))
+
+;; Computing the square root of a number, with fixed-point and with Newton's method
+
+(define (fixed-point-of-transform g transform guess)
+  (fixed-point (transform g) guess))
+
+(define (sqrt-fixed-point x)
+  (fixed-point-of-transform
+   (lambda (y) (/ x y)) average-damp 1.0))
+
+(define (sqrt-newtons-method x)
+  (fixed-point-of-transform
+   (lambda (y) (- (square y) x)) newton-transform 1.0))
